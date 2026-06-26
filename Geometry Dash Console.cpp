@@ -1,0 +1,1141 @@
+﻿
+// uzywamy unicode a nie ascii tylko ze unicode wymaga dwoch bajtow wiec uzywamy wide char  string itd i wcout noi najlepsze znaki od 2100
+//kolor: ░ ▒ ▓
+//bloki: ▩□▦
+// kolce △ ▽▵▿
+// portal ⎞⎜⎠⎛
+//▣ gracz ֍ ᐆ
+//◎○◠
+// 
+#include <iostream>
+#include <windows.h>
+#include <string>
+#include <fcntl.h>
+#include <cmath>
+#include <chrono>
+#include <fstream>
+#include <vector>
+#include<io.h>
+//#include <filesystem>
+#include <direct.h> 
+using namespace std;
+
+class tempclass {
+	
+	public: void Start() {
+
+	}
+	public:	void Update() {
+		
+	}
+};
+int loadedScene = 0;
+const int Width=60;
+const int Height=16;
+wchar_t buffor[Height][Width];
+bool lastKey[256] = { false };
+double deltaTime;
+string loadPath;
+int GetKeyDown() {
+	for (int vk = 0; vk < 256; vk++) {
+		bool pressed = (GetAsyncKeyState(vk) & 0x8000) != 0;
+
+		if (pressed == true && lastKey[vk] == false) {
+			lastKey[vk] = true;
+			return vk;
+		}
+		if (pressed == false) 
+		{
+			lastKey[vk] = false;
+		}
+	}
+	return 0;
+}
+void DrawScreen(HANDLE &Console) {
+
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	
+	int w = 0;
+	int h = 0;
+	if (GetConsoleScreenBufferInfo(Console, &csbi)) {
+		w = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+		h = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+		
+	}
+	if (Width > w - 1 || Height > h - 1) {
+		system("cls");
+		wcout << L"okno konsoli jest za male\n";
+		Sleep(100);
+		return;
+	}
+	wstring bufferstr;
+
+	for (int y = 0; y < Height; y++) {
+		for (int x = 0; x < Width; x++) {
+
+			bufferstr.push_back(buffor[y][x]);
+
+		}
+		bufferstr.push_back('\n');
+	}
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), { 0, 0 });
+	wcout << bufferstr;
+
+}
+void ClearBuffor() {
+	for (int y = 0; y < Height; y++)
+	{
+		for (int x = 0; x < Width; x++)
+		{
+			buffor[y][x] = ' ';
+		}
+	}
+}
+
+int loadedlevelind = -1;
+struct levelinfo {
+	int index;
+	wstring name;
+	int best;
+	int atts;
+};
+levelinfo poziomy[3] = {
+		{0,L"Stereo Maddnes",0,0},
+		{1,L"polargeist",0,0},
+		{2,L"placeholder",0,0}
+};
+void LoadStats() {
+	bool exists = false;
+	ifstream stats("stats/s.txt");
+	if (stats) {
+		exists = true;
+		stats.close();
+	}
+	if (exists == false) {
+		ofstream stats1("stats/s.txt");
+		for (int i = 0; i < 3; i++)
+		{
+			stats1 << 0 << endl;
+			stats1 << 0 << endl;
+		}
+	}
+	ifstream stats2("stats/s.txt");
+	int l;
+	int ind1 = 0;
+	int ind2 = 0;
+	vector<int> lines;
+	while (stats2 >> l) {
+		lines.push_back(l);
+	}
+	for (int i = 0; i < lines.size() / 2; i++)
+	{
+		poziomy[i].best = lines[i * 2];
+		poziomy[i].atts = lines[i * 2+1];
+	}
+
+}
+void OverWriteStats(int precent,bool died) {
+	if (loadedlevelind == -1) {
+		return;
+	}
+	int oldatts;
+	int l;
+	int ind1 = 0;
+	int ind2 = 0;
+	ifstream stats("stats/s.txt");
+	vector<int> lines;
+	while (stats >> l) {
+		lines.push_back(l);
+	}
+	stats.close();
+	if (lines[loadedlevelind * 2] < precent) {
+		lines[loadedlevelind * 2] = precent;
+	}
+	if (died == true) {
+		lines[loadedlevelind * 2 + 1]++;
+	}
+
+
+
+	ofstream stats1("stats/s.txt");
+	for (int i = 0; i < lines.size(); i++)
+	{
+		stats1 << lines[i] << endl;
+	}
+	stats1.close();
+	LoadStats();
+}
+
+class MainMenu {
+	int cur = 0;
+	int page = 0;
+	int menu = 0;
+	bool loadedlist = false;
+	vector<string> levels;
+	wstring titlescreen[4] =
+	{
+	L"##### ###  ",
+	L"#     #  ##",
+	L"#   # #  ##",
+	L"##### ###  console",
+	
+	};
+
+	
+	float menutimer=0;
+
+	
+	public: void Start() {
+
+		LoadStats();
+
+	}
+	public: void Update() {
+		
+		DrawBox();
+		if (menu == 0) {
+			DrawMenu();
+			int KeyDown = GetKeyDown();
+			if (KeyDown == VK_SPACE) {
+				switch (cur)
+				{
+				default:
+					break;
+				case 0:
+					cur = 0;
+					menu = 1;
+					levels.clear();
+					loadedlist = false;
+					break;
+				case 1:
+					cur = 0;
+					menu = 2;
+					levels.clear();
+					loadedlist = false;
+					break;
+				case 2:
+					exit(0);
+				}
+
+			}
+			if (KeyDown == VK_UP) {
+				cur--;
+				if (cur < 0) {
+					cur = 2;
+				}
+			}
+			if (KeyDown == VK_DOWN) {
+				cur++;
+				if (cur > 2) {
+					cur = 0;
+				}
+			}
+			
+
+		}
+		if(menu == 1) {
+			int KeyDown = GetKeyDown();
+			if (KeyDown == VK_LEFT) {
+				cur--;
+				if (cur < 0) {
+					cur = 2;
+				}
+			}
+			if (KeyDown == VK_RIGHT) {
+				cur++;
+				if (cur > 2) {
+					cur = 0;
+				}
+			}
+			if (KeyDown == VK_SPACE) {
+
+				loadPath = "main/" +to_string(poziomy[cur].index) +".txt";
+				loadedlevelind = poziomy[cur].index;
+				loadedScene = 1;
+
+			}
+			if (KeyDown == 'Q') {
+				cur = 0;
+				menu = 0;
+
+			}
+			buffor[Height / 2][2] = L'<';
+			buffor[Height / 2][Width - 3] = L'>';
+			for (int i = 0; i < 3; i++)
+			{
+				buffor[Height - 3][Width / 2 - 1 + i] = L'.';
+				if (cur == i) {
+					buffor[Height - 3][Width / 2 - 1 + i] = L'o';
+				}
+			}
+			for (int i = 0; i < poziomy[cur].name.length(); i++)
+			{
+				buffor[5][Width / 2 - (poziomy[cur].name.length() / 2) + i] = poziomy[cur].name[i];
+			}
+			for (int i = 0; i < (to_wstring(poziomy[cur].best) + L"%").length(); i++)
+			{
+				buffor[9][Width / 2 - (poziomy[cur].name.length() / 2) + i] = (to_wstring(poziomy[cur].best) + L"%")[i];
+			}
+			for (int i = 0; i < (L"próby: " + to_wstring(poziomy[cur].atts)).length(); i++)
+			{
+				buffor[11][Width / 2 - (poziomy[cur].name.length() / 2) + i] = (L"próby: " + to_wstring(poziomy[cur].atts))[i];
+			}
+			wstring a = L"Q: powrót";
+			for (int i = 0; i < a.length(); i++)
+			{
+				buffor[1][1+i] = a[i];
+			}
+		}
+		if (menu == 2) {
+			if (loadedlist == false) {
+				loadedlist = true;
+				levels.push_back("wroc");
+				levels.push_back("stworz nowy");
+				loadList("editor\\*.txt");
+			}
+			int p = cur / 10;
+
+			for (int i = 0; i < 10; i++)
+			{
+				if (i + p * 10 >= levels.size()) {
+					break;
+				}
+				for (int j = 0; j < levels[i + p * 10].length(); j++)
+				{
+					buffor[3 + i][3 + j] = (wchar_t)levels[i + p * 10][j];
+				}
+				if (cur == i + p * 10) {
+					buffor[3 + i][3 + levels[i + p * 10].length()] = L'<';
+				}
+			}
+			int KeyDown = GetKeyDown();
+			if (KeyDown == VK_UP) {
+				cur--;
+				if (cur < 0) {
+					cur = levels.size() - 1;
+				}
+			}
+			if (KeyDown == VK_DOWN) {
+				cur++;
+				if (cur > levels.size() - 1) {
+					cur = 0;
+				}
+			}
+			if (KeyDown == VK_SPACE) {
+				if (cur == 0) {
+					menu = 0;
+				}
+				else if (cur == 1) {
+					string lvlname;
+					system("cls");
+					wcout << L"nazwa poziomu: ";
+					getline(cin, lvlname);
+					loadPath = "editor/" + lvlname + ".txt";
+					wofstream plik(loadPath);
+					plik.imbue(locale("en_US.UTF-8"));
+					for (int i = 0; i < Height; i++)
+					{
+						for (int j = 0; j < 10000; j++)
+						{				
+							if (i == Height - 1 || i == Height - 2) {
+								plik << L"▔";
+							}
+							else {
+								plik << L" ";
+							}
+
+						}
+						plik << L"\n";
+					}
+					plik.close();
+
+					loadedScene = 2;
+				}
+				else {
+					loadPath = "editor/" + levels[cur];
+					loadedScene = 2;
+				}
+
+			}
+		}
+
+
+
+	}
+	
+	void loadList(string path) {
+
+		struct _finddata_t fileInfo; //strukt windowsowy przechowujacy info o pliku
+		intptr_t handle = _findfirst(path.c_str(), &fileInfo); //znowu handle tylko to bardziej w sumie pointer do pierwszego pliku w dirze
+		if (handle != -1) { // jezeli -1 to nie ma pliku 
+			levels.push_back(string(fileInfo.name));
+			while (_findnext(handle, &fileInfo) == 0) { // find next to tez funkcja do przechodzenia po plikach
+				levels.push_back(string(fileInfo.name));
+			}
+		}
+
+	}
+	 void DrawBox() {
+		 for (int y = 0; y < Height; y++)
+		 {
+			 for (int x = 0; x < Width; x++)
+			 {
+				 if (y == 0 || x == 0 || y == Height - 1 || x == Width - 1) {
+					 buffor[y][x] = L'#';
+				 }
+			 }
+		 }
+	 }
+	 void DrawMenu() {
+		 menutimer += deltaTime;
+		 int b;
+		 for (int i = 0; i < 4; i++)
+		 {
+			 for (int j = 0; j < titlescreen[i].size(); j++)
+			 {
+				 buffor[i + 3][23 + j] = titlescreen[i][j];
+				 if (i == 3) {
+					 b = 24 + j;
+				 }
+			 }
+		 }
+		 if (menutimer < 0.5f) {
+			 buffor[6][b] = L'_';
+		 }
+		 else if (menutimer < 1) {
+			 buffor[6][b] = L' ';
+		 }
+		 else {
+			 menutimer = 0;
+		 }
+
+		 wstring credits = L"twórca: Damian Krokosiński |inspirowane grą: Geometry Dash";
+		 for (int i = 0; i < credits.size(); i++)
+		 {
+			 buffor[Height - 2][i + 1] = credits[i];
+		 }
+		 wstring p = L"graj";
+		 if (cur == 0) {
+			 p = L">graj";
+		 }
+		 for (int i = 0; i < p.length(); i++)
+		 {
+			 buffor[Height - 6][(Width / 2) - (p.length() / 2) + i] = p[i];
+		 }
+
+		 p = L"edytor";
+		 if (cur == 1) {
+			 p = L">edytor";
+		 }
+		 for (int i = 0; i < p.length(); i++)
+		 {
+			 buffor[Height - 5][(Width / 2) - (p.length() / 2) + i] = p[i];
+		 }
+		 p = L"wyjdź";
+		 if (cur == 2) {
+			 p = L">wyjdź";
+		 }
+		 for (int i = 0; i < p.length(); i++)
+		 {
+			 buffor[Height - 4][(Width / 2) - (p.length() / 2) + i] = p[i];
+		 }
+
+	 }
+	 
+
+	 
+};
+class Game {
+	struct Player {
+		float x;
+		float y;
+		float speed;
+		float addforce;
+		float gravity;
+		bool ground;
+		float fakeX;
+		int mode;
+	};
+	Player player;
+	vector<wstring> levelBuffor;
+	int End = 9999;
+	bool locktoWin = false;
+	bool Win = false;
+	bool Dead = false;
+	float deadtimer = 0;
+	int attempts = 0;
+	int precent = 0;
+	public:void Start() {
+		Respawn();
+		LoadLevel(loadPath);
+	}
+	public:void Update() {
+		precent = int(((player.x + player.fakeX) / (float)End) * 100);
+		if (locktoWin == false) {
+			player.x = player.x + player.speed * deltaTime;
+		}
+		else {
+			player.fakeX = player.fakeX + player.speed * deltaTime;
+		}
+		//KOLIZJE X
+		if ((int)player.y > -1) {
+			for (int i = 0; i < ceil(player.speed * deltaTime); i++)
+			{
+				if (levelBuffor[(int)player.y][(int)(player.x + player.fakeX + i)] == L' ') {
+				}
+				else if (levelBuffor[(int)player.y][(int)(player.x + player.fakeX + i)] == L'o') {
+					if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+						player.addforce = -20;
+					}
+				}
+				else if (levelBuffor[(int)player.y][(int)(player.x + player.fakeX + i)] == L'◠') {
+					player.addforce = -30;
+				}
+				else if (levelBuffor[(int)player.y][(int)(player.x + player.fakeX + i)] == L'1') {
+					player.mode = 1;
+				}
+				else if (levelBuffor[(int)player.y][(int)(player.x + player.fakeX + i)] == L'0') {
+					player.mode = 0;
+				}
+				else {
+					Dead = true;
+
+				}
+			}
+		}
+		
+		DrawLevel();
+		DrawMisc();
+		if (Dead == true) {
+			player.speed = 0;
+			DeadScren();
+			if (deadtimer > 1) {
+				OverWriteStats(precent,true);
+				Respawn();
+			}
+			return;
+		}
+		if (Win == true) {
+			player.speed = 0;
+			if (player.fakeX < Width - 1) {
+				player.fakeX += deltaTime * 20;	
+			}
+			else {
+				WinScreen();
+			}
+			if (player.y < Height / 2) {
+				player.y = player.y + 10 * deltaTime;
+			}
+			if (player.y > Height / 2) {
+				player.y = player.y - 10 * deltaTime;
+			}
+			return;
+		}
+		if (player.fakeX < 10) {
+			player.fakeX = player.x;
+
+		}
+		else {
+			if (abs(End - player.x) < 50) {
+				locktoWin = true;
+				if (abs(Width - player.fakeX) < 15) {
+					OverWriteStats(100, false);
+					Win = true;
+
+				}
+			}
+			else {
+				player.fakeX = 10;
+			}
+
+		}
+
+		if (player.mode == 0) {
+			player.addforce = player.addforce + 100 * player.gravity * deltaTime;
+			if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+				//jump
+				if (player.ground == true) {
+					player.addforce = -20 * player.gravity;
+				}
+			}
+		}
+		else if (player.mode == 1) {
+
+			if(GetAsyncKeyState(VK_SPACE) & 0x8000) {
+				player.addforce = player.addforce + -150 * player.gravity * deltaTime;
+			}
+			else {
+				player.addforce = player.addforce + 150 * player.gravity * deltaTime;
+			}
+			if (player.addforce > 15) {
+				player.addforce = 15;
+			}
+			if (player.addforce < -15) {
+				player.addforce = -15;
+			}
+		}
+
+
+
+		int KeyDown = GetKeyDown();
+		if (KeyDown == 'Q') {
+			loadedScene = 0;
+		}
+		player.ground = false;
+		int landed = 0;
+		//KOLIZJE Y UPADEK
+		if (player.addforce >= 0) {
+			if ((int)player.y > -1) {
+				for (int i = 0; i < ceil(player.addforce * deltaTime) + 1; i++)
+				{
+					if (levelBuffor[(int)player.y + i][(int)(player.x + player.fakeX)] == L' ') {
+						//buffor[(int)round(player.y) + i][(int)player.x] = L'#';
+					}
+					else {
+						// kolce △ ▽▵▿
+						if (levelBuffor[(int)player.y + i][(int)(player.x + player.fakeX)] == L'△' ||
+							levelBuffor[(int)player.y + i][(int)(player.x + player.fakeX)] == L'▽' ||
+							levelBuffor[(int)player.y + i][(int)(player.x + player.fakeX)] == L'▵' ||
+							levelBuffor[(int)player.y + i][(int)(player.x + player.fakeX)] == L'▿')
+						{
+							Dead = true;
+							break;
+
+						}
+						else if (levelBuffor[(int)player.y + i][(int)(player.x + player.fakeX)] == L'o') {
+							if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+								player.addforce = -20 * player.gravity;
+							}
+
+						}
+						else if (levelBuffor[(int)player.y + i][(int)(player.x + player.fakeX)] == L'◠') {
+							player.addforce = -30 * player.gravity;
+						}
+						else if (levelBuffor[(int)player.y + i][(int)(player.x + player.fakeX)] == L'1') {
+							player.mode = 1;
+						}
+						else if (levelBuffor[(int)player.y + i][(int)(player.x + player.fakeX)] == L'0') {
+							player.mode = 0;
+						}
+						else {
+							player.ground = true;
+							landed = (int)player.y + i - 1;
+							break;
+						}
+					}
+				}
+			}
+		}
+		else if (player.addforce < 0) {
+			if ((int)player.y > -1) {
+				for (int i = 0; i < -ceil(player.addforce * deltaTime) + 2; i++)
+				{
+
+					if (levelBuffor[(int)player.y - i][(int)(player.x + player.fakeX)] == L' ') {
+						//buffor[(int)round(player.y) + i][(int)player.x] = L'#';
+					}
+					else {
+						// kolce △ ▽▵▿
+						if (levelBuffor[(int)player.y - i][(int)(player.x + player.fakeX)] == L'△' ||
+							levelBuffor[(int)player.y - i][(int)(player.x + player.fakeX)] == L'▽' ||
+							levelBuffor[(int)player.y - i][(int)(player.x + player.fakeX)] == L'▵' ||
+							levelBuffor[(int)player.y - i][(int)(player.x + player.fakeX)] == L'▿')
+						{
+							Dead = true;
+							break;
+
+						}
+						else if (levelBuffor[(int)player.y - i][(int)(player.x + player.fakeX)] == L'o') {
+							if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+								player.addforce = -20 * player.gravity;
+							}
+
+						}
+						else if (levelBuffor[(int)player.y - i][(int)(player.x + player.fakeX )] == L'◠') {
+							player.addforce = -30 * player.gravity;
+						}
+						else if (levelBuffor[(int)player.y - i][(int)(player.x + player.fakeX )] == L'1') {
+							player.mode = 1;
+						}
+						else if (levelBuffor[(int)player.y - i][(int)(player.x + player.fakeX)] == L'0') {
+							player.mode = 0;
+						}
+						else {
+							if (player.mode == 0) {
+								if (player.gravity == 1) {
+									Dead = true;
+								}
+								else {
+									landed = (int)player.y - i + 1;
+									player.ground = true;
+								}
+
+							}
+							else if (player.mode == 1) {
+								if (player.addforce < 0) {
+									player.addforce = 0;
+								}
+								landed = (int)player.y - i + 1;
+								player.ground = true;
+								break;
+							}
+
+
+						}
+					}
+				}
+			}
+		}
+		
+		if (player.ground == false) {
+			player.y = player.y + player.addforce * deltaTime;
+		}
+		else {
+			player.y = landed;
+			player.addforce = 0;
+
+
+		}
+		
+
+		
+	
+
+	}
+	void Respawn() {
+		player = { 0,Height - 3,15,0,1,0,0,0};
+		locktoWin = false;
+		Win = false;
+		Dead = false;
+		attempts++;
+		deadtimer = 0;
+	}
+	void LoadLevel(string path) {
+		wifstream file(path);
+		wstring line;
+		file.imbue(locale("en_US.UTF-8"));
+		while (getline(file, line))
+		{
+			levelBuffor.push_back(line);
+		}
+		file.close();
+		bool br = false;
+		for (int j = 0; j < 9980; j++)
+		{
+			for (int i = 0; i < levelBuffor.size() - 2; i++)
+			{
+				if (levelBuffor[i][9999 - j] != L' ') {
+					br = true;
+					End = 10000 - j; 					
+					break;
+				}
+			}
+			if (br == true) {
+				break;
+			}
+		}
+		End = End + 5;
+		if (br == false) {
+			End = 20;
+		}
+
+
+	}
+	void DrawMisc() {
+		for (int y = 0; y < Height; y++)
+		{
+			for (int x = 0; x < Width; x++)
+			{
+				if (y == Height - 2) {
+					buffor[y][x] = L'▔';
+				}
+				if (y == Height - 1) {
+					buffor[y][x] = L'-';
+				}
+			}
+		}
+		if ((int)player.y > -1) {
+			if (Dead == false) {
+
+				switch (player.mode)
+				{
+					default:
+						buffor[(int)player.y][int(player.fakeX)] = L'▣';
+						break;
+					case 0:
+						buffor[(int)player.y][int(player.fakeX)] = L'▣';
+						break;
+					case 1:
+						buffor[(int)player.y][int(player.fakeX)] = L'ᐆ';
+						break;
+					case 2:
+						buffor[(int)player.y][int(player.fakeX)] = L'֍';
+						break;
+				}
+
+			}
+			else {
+				buffor[(int)player.y][int(player.fakeX)] = L'X';
+			}
+		}
+
+
+		if (locktoWin == true) {
+			for (int i = 0; i < Height; i++)
+			{
+				buffor[i][Width - 1] = L'#';
+				buffor[i][Width - 2] = L'#';
+				buffor[i][Width - 3] = L'|';
+			}
+
+		}
+		for (int i = 0; i < 10; i++)
+		{
+			if (precent >= i*10 ) {
+				buffor[0][Width / 2 - 5 + i] = L'=';
+			}
+			else {
+				buffor[0][Width / 2 - 5 + i] = L'-';
+			}
+
+		}
+
+		wstring pr = to_wstring(precent) + L"%";
+		if (Win == true) {
+			pr = L"100%";
+		}
+		for (int i = 0; i < pr.length(); i++)
+		{
+			buffor[0][Width / 2 + 6 + i] = pr[i];
+		}
+
+		wstring atts = L"zgony: " + to_wstring(attempts);
+		for (int i = 0; i < atts.length(); i++)
+		{
+			if (30 + i - ((int)player.x) >= 0) {
+				buffor[Height - 5][30 + i - ((int)player.x)] = atts[i];
+			}
+
+		}
+
+	}
+	void DrawLevel() {
+		for (int y = 0; y < Height; y++)
+		{
+			for (int x = 0; x < Width; x++)
+			{
+				if (player.x >= 10) {
+					buffor[y][x] = levelBuffor[y][x + int(player.x)];
+				}
+				else {
+					buffor[y][x] = levelBuffor[y][x + player.fakeX];
+				}
+
+			}
+		}
+	}
+	void WinScreen() {
+		for (int i = 0; i < 21; i++)
+		{
+			for (int j = 0; j < Height - 2; j++)
+			{
+				buffor[j + 1][19 + i] = L'#';
+			}
+		}
+		for (int i = 0; i < 19; i++)
+		{
+			for (int j = 0; j < Height - 4; j++)
+			{
+				buffor[j + 2][20 + i] = L' ';
+			}
+		}
+		wstring ui1 = L"poziom ukończony!";
+		for (int i = 0; i < ui1.size(); i++)
+		{
+			buffor[4][21 + i] = ui1[i];
+		}
+		ui1 = L" naciśnij spację";
+		for (int i = 0; i < ui1.size(); i++)
+		{
+			buffor[8][21 + i] = ui1[i];
+		}
+		ui1 = L" aby kontynuować";
+		for (int i = 0; i < ui1.size(); i++)
+		{
+			buffor[9][21 + i] = ui1[i];
+		}
+		int k = GetKeyDown();
+		if (k == VK_SPACE) {
+			loadedScene = 0;
+		}
+	}
+	void DeadScren() {
+		wstring message = L"zgon :c";
+		if (loadedlevelind != -1) {
+			if (poziomy[loadedlevelind].best < precent) {
+				message = L"nowy rekord! " +to_wstring(precent) + L"%";
+			}
+		}
+		for (int i = 0; i < message.length(); i++)
+		{
+			buffor[6][Width / 2 - message.length() / 2 + i] = message[i];
+		}
+		deadtimer += deltaTime;
+
+	}
+
+};
+class Editor {
+	vector<wstring> lvl;
+	float CurX = Width / 2 + 1;
+	float CurY = Height / 2;
+	float curV = 1;
+	int SelectedB = 0;
+	int SelectedBC = 0;
+	float scrollspeed = 10;
+	vector<wstring> toolbar = { L"▩□▦#",L"△▽▵▿",L"o◠",L"01" };
+public:void Start() {
+	LoadEditor();
+}
+public:void Update() {
+
+
+	DrawLvl();
+	if (GetAsyncKeyState('H') & 0x8000) {
+
+	}
+	else {
+		DrawUI();
+	}
+
+	int KeyDown = GetKeyDown();
+	if (GetAsyncKeyState(VK_UP) & 0x8000) {
+		CurY-= deltaTime * scrollspeed;
+		if (CurY < 0) {
+			CurY = 0;
+		}
+	}
+	if (GetAsyncKeyState(VK_DOWN) & 0x8000) {
+		CurY += deltaTime * scrollspeed;
+		if ((int)CurY > Height - 3) {
+			CurY = Height - 3;
+		}
+	}
+	if (GetAsyncKeyState(VK_RIGHT) & 0x8000) {
+		CurX = CurX + deltaTime * scrollspeed;
+
+	}
+	if (GetAsyncKeyState(VK_LEFT) & 0x8000) {
+		CurX-=deltaTime * scrollspeed;
+		if ((int)CurX < 10) {
+			CurX = 10;
+		}
+	}
+	if (KeyDown == '1') {
+		SelectedBC = 0;
+		SelectedB = 0;
+	}
+	if (KeyDown == '2') {
+		SelectedBC = 1;
+		SelectedB = 0;
+	}
+	if (KeyDown == '3') {
+		SelectedBC = 2;
+		SelectedB = 0;
+	}
+	if (KeyDown == '4') {
+		SelectedBC = 3;
+		SelectedB = 0;
+	}
+	if (KeyDown == 'S') {
+		system("cls");
+		wcout << L"podaj prędkość(d. 10): ";
+		cin.clear();
+		cin.ignore();
+		cin >> scrollspeed;
+
+	}
+	if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+		lvl[CurY][CurX] = toolbar[SelectedBC][SelectedB];
+		if (SelectedBC == 3) {
+			if (CurY - 1 >= 0) {
+				lvl[CurY - 1][CurX] = toolbar[SelectedBC][SelectedB];
+			}
+			if (CurY + 3 < Height) {
+				lvl[CurY + 1][CurX] = toolbar[SelectedBC][SelectedB];
+			}
+		}
+	}
+	if (GetAsyncKeyState(VK_SHIFT) & 0x8000) {
+		lvl[CurY][CurX] = L' ';
+	}
+	if (KeyDown == 'E') {
+		Save();
+	}
+	if (KeyDown == 'R') {
+		Save();
+		loadedlevelind = -1;
+		loadedScene = 1;
+		
+	}
+	if (KeyDown == 'Q') {
+		Save();
+		loadedScene = 0;
+
+	}
+	if (KeyDown == 'A') {
+		Save();
+		SelectedB--;
+		if (SelectedB < 0) {
+			SelectedB = toolbar[SelectedBC].size() - 1;
+		}
+
+	}
+	if (KeyDown == 'D') {
+		Save();
+		SelectedB++;
+		if (SelectedB > toolbar[SelectedBC].size() - 1) {
+			SelectedB = 0;
+		}
+
+
+	}
+}
+	  void DrawUI() {
+		  curV = curV + deltaTime;
+		  if (curV > 1) {
+			  curV = 0;
+		  }
+		  if (curV > 0.5f) {
+			  if (CurX >= Width / 2){
+				  buffor[(int)CurY][Width / 2] = L'⛶';
+			  }
+			  else {
+				  buffor[(int)CurY][(int)CurX] = L'⛶';
+			  }
+
+		}
+		wstring tmpmenu = L"1.bloki 2.kolce 3.orby 4.portale E-zapisz R- zapisz i graj";
+
+		for (int i = 0; i < tmpmenu.length(); i++)
+		{
+			buffor[0][i] = tmpmenu[i];
+		}
+		for (int i = 0; i < toolbar[SelectedBC].size(); i++)
+		{
+			buffor[1][i] = toolbar[SelectedBC][i];
+		}
+		buffor[2][SelectedB] = L'^';
+		
+	}
+	void DrawLvl() {
+		for (int i = 0; i < Height; i++)
+		{
+			for (int j = 0; j < Width; j++)
+			{
+				if (CurX >= Width / 2) {
+					buffor[i][j] = lvl[i][CurX + j - Width / 2];
+				}
+				else {
+					buffor[i][j] = lvl[i][j];
+				}
+			}
+		}
+	}
+	void LoadEditor() {
+		wifstream plik(loadPath);
+		wstring tmp;
+		plik.imbue(locale("en_US.UTF-8"));
+		while (getline(plik,tmp))
+		{
+			lvl.push_back(tmp);
+		}plik.close();
+	}
+	void Save() {
+		wofstream plik(loadPath);
+		plik.imbue(locale("en_US.UTF-8"));
+		for (int i = 0; i < lvl.size(); i++)
+		{
+			plik << lvl[i] << endl;
+		}
+		plik.close();
+	}
+};
+
+int main()
+{
+	HANDLE Console = GetStdHandle(STD_OUTPUT_HANDLE); // handle to odniesienia do zasobu systemowego
+	loadedScene= 0;
+	MainMenu* mainMenu = nullptr;
+	Game* game = nullptr;
+	Editor* editor = nullptr;
+	CONSOLE_CURSOR_INFO cursorInfo;
+	SetConsoleOutputCP(CP_UTF8); // output dla kosoli w unicode
+	_setmode(_fileno(stdout), _O_U8TEXT); // cout na wcout w unicode
+	GetConsoleCursorInfo(Console, &cursorInfo); 
+	cursorInfo.bVisible = false;
+	SetConsoleCursorInfo(Console, &cursorInfo);
+	_mkdir("main");
+	_mkdir("editor");
+	_mkdir("stats");
+	ios_base::sync_with_stdio(false);
+	while (true)
+	{
+		 auto start = chrono::high_resolution_clock::now();
+
+		ClearBuffor();
+		if (loadedScene == 0) {
+			if (mainMenu == nullptr) {
+				mainMenu = new MainMenu();
+				mainMenu->Start();
+				
+			}
+			else {
+				mainMenu->Update();
+			}
+
+		}
+		else {
+			if (mainMenu != nullptr) {
+				delete mainMenu;
+				mainMenu = nullptr;
+			}
+
+		}
+
+		if (loadedScene == 1) {
+			if (game == nullptr) {
+				game = new Game();
+				game->Start();
+			}
+			else {
+				game->Update();
+			}
+		}
+		else {
+			if (game != nullptr) {
+				delete game;
+				game = nullptr;
+			}
+		}
+
+		if (loadedScene == 2) {
+			if (editor== nullptr) {
+				editor = new Editor();
+				editor->Start();
+			}
+			else {
+				editor->Update();
+			}
+		}
+		else {
+			if (editor != nullptr) {
+				delete editor;
+				editor = nullptr;
+			}
+		}
+		DrawScreen(Console);
+		auto end = chrono::high_resolution_clock::now();
+		deltaTime = chrono::duration<double>(end - start).count();
+	}
+}
